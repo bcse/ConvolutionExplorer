@@ -13,7 +13,7 @@ class ViewController: UIViewController {
     let mainGroup = SLVGroup()
     let workspace = SLHGroup()
     let imageView = UIImageView()
-    let kernelEditor = KernelEditor(kernel: [Int](count: 49, repeatedValue: 0))
+    let kernelEditor = KernelEditor(kernel: [Int](repeating: 0, count: 49))
     let valueSlider = UISlider()
     
     let toolbar = SLHGroup()
@@ -21,13 +21,13 @@ class ViewController: UIViewController {
     let rightToolbar = SLVGroup()
     let leftToolbarButtonGroup = SLHGroup()
     
-    let clearSelectionButton = ViewController.borderedButton("Clear Selection")
-    let selectAllButton = ViewController.borderedButton("Select All")
-    let invertSelectionButton = ViewController.borderedButton("Invert Selection")
-    let zeroSelectionButton = ViewController.borderedButton("Zero Selection")
+    let clearSelectionButton = borderedButton("Clear Selection")
+    let selectAllButton = borderedButton("Select All")
+    let invertSelectionButton = borderedButton("Invert Selection")
+    let zeroSelectionButton = borderedButton("Zero Selection")
     
     let divisorSegmentedControl = UISegmentedControl(items: ["1", "2", "4", "8", "16", "32"])
-    let kernelSizeSegmentedControl = UISegmentedControl(items: [KernelSize.ThreeByThree.rawValue, KernelSize.FiveByFive.rawValue, KernelSize.SevenBySeven.rawValue])
+    let kernelSizeSegmentedControl = UISegmentedControl(items: KernelSize.allCases.map({ $0.rawValue }))
     
     let image = UIImage(named: "image.jpg")
     
@@ -35,11 +35,11 @@ class ViewController: UIViewController {
     {
         super.viewDidLoad()
 
-        imageView.contentMode = UIViewContentMode.ScaleAspectFit
+        imageView.contentMode = .scaleAspectFit
         
         valueSlider.minimumValue = -20
         valueSlider.maximumValue = 20
-        valueSlider.enabled = false
+        valueSlider.isEnabled = false
         
         kernelEditor.kernel[17] = -1
         kernelEditor.kernel[23] = -1
@@ -79,25 +79,25 @@ class ViewController: UIViewController {
     
     func createControlEvenHandlers()
     {
-        valueSlider.addTarget(self, action: "sliderChange", forControlEvents: UIControlEvents.ValueChanged)
+        valueSlider.addTarget(self, action: #selector(sliderChange), for: .valueChanged)
         
-        divisorSegmentedControl.addTarget(self, action: "divisorChanged", forControlEvents: UIControlEvents.ValueChanged)
-        kernelSizeSegmentedControl.addTarget(self, action: "kernelSizeChange", forControlEvents: UIControlEvents.ValueChanged)
-        kernelEditor.addTarget(self, action: "selectionChanged", forControlEvents: UIControlEvents.ValueChanged)
+        divisorSegmentedControl.addTarget(self, action: #selector(divisorChanged), for: .valueChanged)
+        kernelSizeSegmentedControl.addTarget(self, action: #selector(kernelSizeChange), for: .valueChanged)
+        kernelEditor.addTarget(self, action: #selector(selectionChanged), for: .valueChanged)
         
-        clearSelectionButton.addTarget(self, action: "clearSelection", forControlEvents: UIControlEvents.TouchDown)
-        selectAllButton.addTarget(self, action: "selectAll", forControlEvents: UIControlEvents.TouchDown)
-        invertSelectionButton.addTarget(self, action: "invertSelection", forControlEvents: UIControlEvents.TouchDown)
-        zeroSelectionButton.addTarget(self, action: "setSelectedToZero", forControlEvents: UIControlEvents.TouchDown)
+        clearSelectionButton.addTarget(self, action: #selector(clearSelection), for: .touchDown)
+        selectAllButton.addTarget(self, action: #selector(selectAllCells), for: .touchDown)
+        invertSelectionButton.addTarget(self, action: #selector(invertSelection), for: .touchDown)
+        zeroSelectionButton.addTarget(self, action: #selector(setSelectedToZero), for: .touchDown)
     }
  
 
     func applyKernel()
     {
         var kernel = [Int16]()
-        let size: Int = kernelEditor.kernelSize == .ThreeByThree ? 3 : kernelEditor.kernelSize == .FiveByFive ? 5 : 7
+        //let size: Int = kernelEditor.kernelSize == .ThreeByThree ? 3 : kernelEditor.kernelSize == .FiveByFive ? 5 : 7
         
-        for (idx, cell) in enumerate(kernelEditor.kernel)
+        for (idx, cell) in kernelEditor.kernel.enumerated()
         {
             let row = Int(idx / 7)
             let column = idx % 7
@@ -124,66 +124,74 @@ class ViewController: UIViewController {
         imageView.image = applyConvolutionFilterToImage(image!, kernel: kernel, divisor: divisor)
     }
     
+    @objc
     func sliderChange()
     {
         let newValue = Int(valueSlider.value)
         
-        kernelEditor.selectedCellIndexes.map({ self.kernelEditor.kernel[$0] = newValue })
+        kernelEditor.selectedCellIndexes.forEach({ self.kernelEditor.kernel[$0] = newValue })
         
         applyKernel()
     }
     
+    @objc
     func setSelectedToZero()
     {
-        kernelEditor.selectedCellIndexes.map({ self.kernelEditor.kernel[$0] = 0 })
+        kernelEditor.selectedCellIndexes.forEach({ self.kernelEditor.kernel[$0] = 0 })
         
         selectionChanged()
         applyKernel()
     }
     
+    @objc
     func clearSelection()
     {
-        kernelEditor.cells.map({ $0.selected = false })
+        kernelEditor.cells.forEach({ $0.selected = false })
         selectionChanged()
     }
     
-    func selectAll()
+    @objc
+    func selectAllCells()
     {
-        kernelEditor.cells.map({ $0.selected = true })
+        kernelEditor.cells.forEach({ $0.selected = true })
         selectionChanged()
     }
     
+    @objc
     func invertSelection()
     {
-        kernelEditor.cells.map({ $0.selected = !$0.selected })
+        kernelEditor.cells.forEach({ $0.selected = !$0.selected })
         selectionChanged()
     }
     
+    @objc
     func selectionChanged()
     {
         let cellsSelected = kernelEditor.selectedCellIndexes.count != 0
         
-        valueSlider.enabled = cellsSelected
-        clearSelectionButton.enabled = cellsSelected
-        invertSelectionButton.enabled = cellsSelected
-        zeroSelectionButton.enabled = cellsSelected
+        valueSlider.isEnabled = cellsSelected
+        clearSelectionButton.isEnabled = cellsSelected
+        invertSelectionButton.isEnabled = cellsSelected
+        zeroSelectionButton.isEnabled = cellsSelected
         
         if cellsSelected
         {
-            let selectionAverage = kernelEditor.selectedCellIndexes.reduce(0, combine: { $0 + kernelEditor.kernel[$1] }) / kernelEditor.selectedCellIndexes.count
+            let selectionAverage = kernelEditor.selectedCellIndexes.reduce(0, { $0 + kernelEditor.kernel[$1] }) / kernelEditor.selectedCellIndexes.count
             
-            valueSlider.value = Float(selectionAverage);
+            valueSlider.value = Float(selectionAverage)
         }
     }
     
+    @objc
     func divisorChanged()
     {
         applyKernel()
     }
     
+    @objc
     func kernelSizeChange()
     {
-        if let kernelSize = KernelSize(rawValue: kernelSizeSegmentedControl.titleForSegmentAtIndex(kernelSizeSegmentedControl.selectedSegmentIndex)!)
+        if let kernelSize = KernelSize(rawValue: kernelSizeSegmentedControl.titleForSegment(at: kernelSizeSegmentedControl.selectedSegmentIndex)!)
         {
             kernelEditor.kernelSize = kernelSize
             applyKernel()
@@ -195,27 +203,26 @@ class ViewController: UIViewController {
         let top = topLayoutGuide.length
         let bottom = bottomLayoutGuide.length
         
-        mainGroup.frame = CGRect(x: 0, y: top, width: view.frame.width, height: view.frame.height - top - bottom).rectByInsetting(dx: 5, dy: 5)
+        mainGroup.frame = CGRect(x: 0, y: top, width: view.frame.width, height: view.frame.height - top - bottom).insetBy(dx: 5, dy: 5)
     }
     
-    override func supportedInterfaceOrientations() -> Int
-    {
-        return Int(UIInterfaceOrientationMask.Landscape.rawValue)
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .landscape
     }
 
-    class func borderedButton(text: String) -> SLButton
+    class func borderedButton(_ text: String) -> SLButton
     {
         let button = SLButton()
-        button.setTitle(text, forState: UIControlState.Normal)
+        button.setTitle(text, for: .normal)
         
-        button.setTitleColor(UIColor.blueColor(), forState: UIControlState.Normal)
-        button.setTitleColor(UIColor.lightGrayColor(), forState: UIControlState.Disabled)
+        button.setTitleColor(.blue, for: .normal)
+        button.setTitleColor(.lightGray, for: .disabled)
         
         button.titleLabel?.numberOfLines = 2
-        button.titleLabel?.textAlignment = NSTextAlignment.Center
+        button.titleLabel?.textAlignment = .center
         
         button.layer.cornerRadius = 3
-        button.layer.borderColor = UIColor.blueColor().CGColor
+        button.layer.borderColor = UIColor.blue.cgColor
         button.layer.borderWidth = 1
         
         return button

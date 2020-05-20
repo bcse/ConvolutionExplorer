@@ -30,9 +30,9 @@ public class SLHGroup: SLGroup
 
         let childMetrics = SLGroup.calculateChildMetrics(children: children, childPercentageSizes: childPercentageSizes, availableSize: frame.width, totalExplicitSize: totalExplicitSize)
    
-        map(zip(children, childMetrics))
+        for (child, metrics) in zip(children, childMetrics)
         {
-            $0.frame = CGRect(x: $1.origin, y: 0, width: $1.size, height: self.frame.height).rectByInsetting(dx: self.margin / 2, dy: 0)
+            child.frame = CGRect(x: metrics.origin, y: 0, width: metrics.size, height: self.frame.height).insetBy(dx: self.margin / 2, dy: 0)
         }
     }
 }
@@ -47,9 +47,9 @@ public class SLVGroup: SLGroup
         
         let childMetrics = SLGroup.calculateChildMetrics(children: children, childPercentageSizes: childPercentageSizes, availableSize: frame.height, totalExplicitSize: totalExplicitSize)
         
-        map(zip(children, childMetrics))
+        for (child, metrics) in zip(children, childMetrics)
         {
-            $0.frame = CGRect(x: 0, y: $1.origin, width: self.frame.width, height: $1.size).rectByInsetting(dx: 0, dy: self.margin / 2)
+            child.frame = CGRect(x: 0, y: metrics.origin, width: self.frame.width, height: metrics.size).insetBy(dx: 0, dy: self.margin / 2)
         }
     }
 }
@@ -60,22 +60,22 @@ public class SLGroup: UIView, SLLayoutItem
     public var percentageSize: CGFloat?
     public var explicitSize: CGFloat?
     
-    private var childPercentageSizes = [CGFloat]()
-    private var totalExplicitSize: CGFloat = 0
+    internal var childPercentageSizes = [CGFloat]()
+    internal var totalExplicitSize: CGFloat = 0
     
     typealias LayoutMetrics = (childPercentageSizes: [CGFloat], totalExplicitSize: CGFloat)
     typealias ChildMetric = (origin: CGFloat, size: CGFloat)
     
-    required public init ()
+    public required init ()
     {
         super.init(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
     }
     
-    required public init(coder aDecoder: NSCoder) {
+    public required init(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    override public func addSubview(view: UIView)
+    override public func addSubview(_ view: UIView)
     {
         children.append(view)
     }
@@ -84,7 +84,7 @@ public class SLGroup: UIView, SLLayoutItem
     {
         didSet
         {
-            oldValue.map({ $0.removeFromSuperview() })
+            oldValue.forEach { $0.removeFromSuperview() }
 
             setNeedsLayout()
         }
@@ -92,7 +92,7 @@ public class SLGroup: UIView, SLLayoutItem
     
     override public func layoutSubviews()
     {
-        children.map({ super.addSubview($0) })
+        children.forEach { super.addSubview($0) }
         
         let layoutMetrics = SLGroup.calculateLayoutMetrics(children)
         
@@ -101,12 +101,12 @@ public class SLGroup: UIView, SLLayoutItem
         
         if newChild != nil
         {
-            NSTimer.scheduledTimerWithTimeInterval(1 / 60, target: self, selector: "addStep", userInfo: nil, repeats: false)
+            Timer.scheduledTimer(timeInterval: 1 / 60, target: self, selector: #selector(addStep), userInfo: nil, repeats: false)
             
         }
         else if removeChildIndex != nil
         {
-            NSTimer.scheduledTimerWithTimeInterval(1 / 60, target: self, selector: "removeStep", userInfo: nil, repeats: false)
+            Timer.scheduledTimer(timeInterval: 1 / 60, target: self, selector: #selector(removeStep), userInfo: nil, repeats: false)
         }
         else
         {
@@ -124,11 +124,11 @@ public class SLGroup: UIView, SLLayoutItem
     
     /// Returns a LayoutMetrics instance containing the percemtage sizes for each child and the total of the
     /// explicit sizes.
-    class func calculateLayoutMetrics(children: [UIView]) -> LayoutMetrics
+    class func calculateLayoutMetrics(_ children: [UIView]) -> LayoutMetrics
     {
-        let totalExplicitSize = children.filter({ self.hasExplicitSize($0) }).reduce(CGFloat(0), combine: {$0 + ($1 as! SLLayoutItem).explicitSize!});
+        let totalExplicitSize = children.filter({ self.hasExplicitSize($0) }).reduce(CGFloat(0), {$0 + ($1 as! SLLayoutItem).explicitSize!})
         
-        let totalPercentages = children.filter({ self.hasPercentage($0) }).reduce(CGFloat(0), combine: {$0 + ($1 as! SLLayoutItem).percentageSize!})
+        let totalPercentages = children.filter({ self.hasPercentage($0) }).reduce(CGFloat(0), {$0 + ($1 as! SLLayoutItem).percentageSize!})
         
         let defaultComponentPercentage = (CGFloat(100) - totalPercentages) / CGFloat(children.filter({ !self.hasPercentage($0) && !self.hasExplicitSize($0) }).count)
         
@@ -141,30 +141,29 @@ public class SLGroup: UIView, SLLayoutItem
     
     /// Returns an array of ChildMetric instances that define absolute position and width
     /// to fit within totalExplicitSize
-    class func calculateChildMetrics(#children: [UIView], childPercentageSizes: [CGFloat], availableSize: CGFloat, totalExplicitSize: CGFloat) -> [ChildMetric]
+    class func calculateChildMetrics(children: [UIView], childPercentageSizes: [CGFloat], availableSize: CGFloat, totalExplicitSize: CGFloat) -> [ChildMetric]
     {
         var currentOrigin: CGFloat = 0
 
-        let returnArray = map(zip(children, childPercentageSizes))
-        {
-            (child, childPercentage) -> ChildMetric in
-                let percentageWidth = childPercentage / 100 * (availableSize - totalExplicitSize)
-                let componentWidth: CGFloat = SLGroup.hasExplicitSize(child) ? (child as! SLLayoutItem).explicitSize! : percentageWidth
-                let previous = currentOrigin
-                currentOrigin += componentWidth
-    
-                return ChildMetric(origin: previous, size: componentWidth)
+        let returnArray = zip(children, childPercentageSizes).map
+        { (child, childPercentage) -> ChildMetric in
+            let percentageWidth = childPercentage / 100 * (availableSize - totalExplicitSize)
+            let componentWidth: CGFloat = SLGroup.hasExplicitSize(child) ? (child as! SLLayoutItem).explicitSize! : percentageWidth
+            let previous = currentOrigin
+            currentOrigin += componentWidth
+            
+            return ChildMetric(origin: previous, size: componentWidth)
         }
         
         return returnArray
     }
     
-    class func hasExplicitSize(value: UIView) -> Bool
+    class func hasExplicitSize(_ value: UIView) -> Bool
     {
         return (value as? SLLayoutItem)?.explicitSize != nil && !hasPercentage(value)
     }
     
-    class func hasPercentage(value: UIView) -> Bool
+    class func hasPercentage(_ value: UIView) -> Bool
     {
         return (value as? SLLayoutItem)?.percentageSize != nil
     }
@@ -194,20 +193,20 @@ public class SLGroup: UIView, SLLayoutItem
         {
             nextAnim.type == .Add
                 ? addChild(nextAnim.child!, atIndex: nextAnim.index)
-                : removeChild(atIndex: nextAnim.index)
+                : removeChild(at: nextAnim.index)
             
-            animationQueueItems.removeAtIndex(0)
+            animationQueueItems.remove(at: 0)
         }
     }
     
-    func removeChild(#atIndex: Int)
+    func removeChild(at index: Int)
     {
         if animationRunning
         {
-            animationQueueItems.append( SLGroupAnimationQueueItem(.Remove, atIndex, nil) )
+            animationQueueItems.append( SLGroupAnimationQueueItem(.Remove, index, nil) )
             return
         }
-        else if atIndex >= children.count
+        else if index >= children.count
         {
             return
         }
@@ -219,15 +218,19 @@ public class SLGroup: UIView, SLLayoutItem
         let layoutMetrics = SLGroup.calculateLayoutMetrics(children)
         let childMetrics = SLGroup.calculateChildMetrics(children: children, childPercentageSizes: layoutMetrics.childPercentageSizes, availableSize: availableSize, totalExplicitSize: layoutMetrics.totalExplicitSize)
         
-        transientChildSpacer.explicitSize = childMetrics[atIndex].size
-        removeChildIndex = atIndex
+        transientChildSpacer.explicitSize = childMetrics[index].size
+        removeChildIndex = index
         
         sizeStep = transientChildSpacer.explicitSize! / animationSteps
         
-        UIView.animateWithDuration(fadeDuration, delay: 0, options: UIViewAnimationOptions.CurveEaseInOut, animations: {self.children[atIndex].alpha = 0}, completion: {(_) in self.children[atIndex] = self.transientChildSpacer; self.removeStep()})
+        UIView.animate(withDuration: fadeDuration, delay: 0, options: .curveEaseInOut, animations: { self.children[index].alpha = 0
+        }) { _ in
+            self.children[index] = self.transientChildSpacer
+            self.removeStep()
+        }
     }
     
-    func addChild(child: UIView, atIndex: Int)
+    func addChild(_ child: UIView, atIndex: Int)
     {
         if animationRunning
         {
@@ -243,7 +246,7 @@ public class SLGroup: UIView, SLLayoutItem
         let targetIndex = min(children.count, atIndex)
         
         transientChildSpacer.explicitSize = 0
-        children.insert(transientChildSpacer, atIndex: targetIndex)
+        children.insert(transientChildSpacer, at: targetIndex)
         newChildIndex = targetIndex
         newChild = child
         newChild?.alpha = 0
@@ -251,7 +254,7 @@ public class SLGroup: UIView, SLLayoutItem
         let availableSize = self is SLHGroup ? frame.width : frame.height
  
         var candidateChildren = children
-        candidateChildren.insert(child, atIndex: targetIndex)
+        candidateChildren.insert(child, at: targetIndex)
         let layoutMetrics = SLGroup.calculateLayoutMetrics(candidateChildren)
         let childMetrics = SLGroup.calculateChildMetrics(children: candidateChildren, childPercentageSizes: layoutMetrics.childPercentageSizes, availableSize: availableSize, totalExplicitSize: layoutMetrics.totalExplicitSize)
  
@@ -261,37 +264,41 @@ public class SLGroup: UIView, SLLayoutItem
         addStep()
     }
     
+    @objc
     func removeStep()
     {
-        if removeChildIndex != nil && transientChildSpacer.explicitSize > 0
+        if let removeChildIndex = removeChildIndex
         {
-            transientChildSpacer.explicitSize! = max(transientChildSpacer.explicitSize! - sizeStep!, 0)
-        }
-        else if removeChildIndex != nil
-        {
-            children.removeAtIndex(removeChildIndex!)
+            children.remove(at: removeChildIndex)
             
-            removeChildIndex = nil
+            self.removeChildIndex = nil
             animationRunning = false
+        }
+        else if let explicitSize = transientChildSpacer.explicitSize, explicitSize > 0, let sizeStep = sizeStep
+        {
+            transientChildSpacer.explicitSize = max(explicitSize - sizeStep, 0)
         }
         
         setNeedsLayout()
     }
     
+    @objc
     func addStep()
     {
-        if newChild != nil && transientChildSpacer.explicitSize < newChildExplicitSize
+        if let newChild = newChild
         {
-            transientChildSpacer.explicitSize! = min(transientChildSpacer.explicitSize! + sizeStep!, newChildExplicitSize!)
-        }
-        else if newChild != nil
-        {
-            children[newChildIndex!] = newChild!
+            children[newChildIndex!] = newChild
             
-            UIView.animateWithDuration(fadeDuration, delay: 0, options: UIViewAnimationOptions.CurveEaseInOut, animations: {newChild?.alpha = 1}, completion: nil)
+            UIView.animate(withDuration: fadeDuration, delay: 0, options: .curveEaseInOut, animations: {
+                newChild.alpha = 1
+            })
             
             animationRunning = false
-            newChild = nil
+            self.newChild = nil
+        }
+        else if let explicitSize = transientChildSpacer.explicitSize, let newChildExplicitSize = newChildExplicitSize, explicitSize < newChildExplicitSize, let sizeStep = sizeStep
+        {
+            transientChildSpacer.explicitSize = min(explicitSize + sizeStep, newChildExplicitSize)
         }
         
         setNeedsLayout()

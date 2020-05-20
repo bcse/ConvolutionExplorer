@@ -43,15 +43,15 @@ public class SLSpacer: UIView, SLLayoutItem
     public var percentageSize: CGFloat?
     public var explicitSize: CGFloat?
     
-    required public init(percentageSize: CGFloat?, explicitSize: CGFloat?)
+    public required init(percentageSize: CGFloat?, explicitSize: CGFloat?)
     {
-        super.init(frame: CGRectZero)
+        super.init(frame: .zero)
         
         self.percentageSize = percentageSize
         self.explicitSize = explicitSize
     }
     
-    required public init(coder aDecoder: NSCoder)
+    public required init?(coder aDecoder: NSCoder)
     {
         super.init(coder: aDecoder)
     }

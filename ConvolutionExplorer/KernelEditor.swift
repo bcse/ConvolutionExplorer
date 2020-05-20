@@ -20,7 +20,7 @@ class KernelEditor: UIControl
     {
         self.kernel = kernel
         
-        super.init(frame: CGRectZero)
+        super.init(frame: .zero)
 
         mainGroup.children.append(topSpacer)
         mainGroup.margin = 7
@@ -54,9 +54,9 @@ class KernelEditor: UIControl
     
     func updateCellsFromKernel()
     {
-        for (index: Int, value: (Int, KernelEditorCell)) in enumerate(zip(kernel, cells))
+        for (value, cell) in zip(kernel, cells)
         {
-            value.1.text = "\(value.0)"
+            cell.text = "\(value)"
         }
     }
     
@@ -69,11 +69,11 @@ class KernelEditor: UIControl
                 switch kernelSize
                 {
                 case .ThreeByThree:
-                    cell.enabled = cell.rowNumber >= 2 && cell.rowNumber <= 4 && cell.columnNumber >= 2 && cell.columnNumber <= 4
+                    cell.isEnabled = cell.rowNumber >= 2 && cell.rowNumber <= 4 && cell.columnNumber >= 2 && cell.columnNumber <= 4
                 case .FiveByFive:
-                    cell.enabled = cell.rowNumber >= 1 && cell.rowNumber <= 5 && cell.columnNumber >= 1 && cell.columnNumber <= 5
+                    cell.isEnabled = cell.rowNumber >= 1 && cell.rowNumber <= 5 && cell.columnNumber >= 1 && cell.columnNumber <= 5
                 case .SevenBySeven:
-                    cell.enabled = true
+                    cell.isEnabled = true
                 }
             }
         }
@@ -81,16 +81,16 @@ class KernelEditor: UIControl
     
     var touchedCells = [KernelEditorCell]()
     
-    override func touchesBegan(touches: Set<NSObject>, withEvent event: UIEvent)
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?)
     {
-        super.touchesBegan(touches, withEvent: event)
+        super.touchesBegan(touches, with: event)
         touchedCells = [KernelEditorCell]()
         
-        if let touch = touches.first as? UITouch
+        if let touch = touches.first
         {
-            let obj = (hitTest(touch.locationInView(self), withEvent: event))
+            let obj = (hitTest(touch.location(in: self), with: event))
             
-            if let obj = obj as? KernelEditorCell where obj.enabled
+            if let obj = obj as? KernelEditorCell, obj.isEnabled
             {
                 obj.selected = !obj.selected
                 touchedCells.append(obj)
@@ -98,15 +98,15 @@ class KernelEditor: UIControl
         }
     }
     
-    override func touchesMoved(touches: Set<NSObject>, withEvent event: UIEvent)
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?)
     {
-        super.touchesMoved(touches, withEvent: event)
+        super.touchesMoved(touches, with: event)
         
-        if let touch = touches.first as? UITouch
+        if let touch = touches.first
         {
-            let obj = (hitTest(touch.locationInView(self), withEvent: event))
+            let obj = (hitTest(touch.location(in: self), with: event))
             
-            if let obj = obj as? KernelEditorCell where obj.enabled && find(touchedCells, obj) == nil
+            if let obj = obj as? KernelEditorCell, obj.isEnabled && touchedCells.firstIndex(of: obj) == nil
             {
                 obj.selected = !obj.selected
                 touchedCells.append(obj)
@@ -114,11 +114,11 @@ class KernelEditor: UIControl
         }
     }
     
-    override func touchesEnded(touches: Set<NSObject>, withEvent event: UIEvent)
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?)
     {
-        super.touchesEnded(touches, withEvent: event)
+        super.touchesEnded(touches, with: event)
         
-        sendActionsForControlEvents(UIControlEvents.ValueChanged)
+        sendActions(for: .valueChanged)
     }
     
     var selectedCellIndexes: [Int]
@@ -180,13 +180,13 @@ class KernelEditorCell: SLLabel
         self.rowNumber = rowNumber
         self.columnNumber = columnNumber
         
-        super.init(frame: CGRectZero)
+        super.init(frame: .zero)
      
-        userInteractionEnabled = true
+        isUserInteractionEnabled = true
         
-        textAlignment = NSTextAlignment.Center
+        textAlignment = .center
 
-        layer.backgroundColor = UIColor.lightGrayColor().CGColor
+        layer.backgroundColor = UIColor.lightGray.cgColor
         layer.borderWidth = 1
         layer.cornerRadius = 3
         
@@ -206,7 +206,7 @@ class KernelEditorCell: SLLabel
         }
     }
     
-    override var enabled: Bool
+    override var isEnabled: Bool
     {
         didSet
         {
@@ -216,9 +216,9 @@ class KernelEditorCell: SLLabel
     
     func setColors()
     {
-        layer.backgroundColor = selected && enabled ? UIColor.blueColor().CGColor : UIColor.lightGrayColor().CGColor
-        textColor = selected && enabled ? UIColor.whiteColor() : UIColor.blackColor()
-        alpha = enabled ? 1 : 0.5
+        layer.backgroundColor = selected && isEnabled ? UIColor.blue.cgColor : UIColor.lightGray.cgColor
+        textColor = selected && isEnabled ? .white : .black
+        alpha = isEnabled ? 1 : 0.5
     }
     
     required init(coder aDecoder: NSCoder)
@@ -227,7 +227,7 @@ class KernelEditorCell: SLLabel
     }
 }
 
-enum KernelSize: String
+enum KernelSize: String, CaseIterable
 {
     case ThreeByThree = "3 x 3"
     case FiveByFive = "5 x 5"

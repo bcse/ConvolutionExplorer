@@ -10,43 +10,43 @@
 import UIKit
 import Accelerate
 
-func applyConvolutionFilterToImage(image: UIImage, #kernel: [Int16], #divisor: Int) -> UIImage
+func applyConvolutionFilterToImage(_ image: UIImage, kernel: [Int16], divisor: Int) -> UIImage?
 {
     precondition(kernel.count == 9 || kernel.count == 25 || kernel.count == 49, "Kernel size must be 3x3, 5x5 or 7x7.")
     let kernelSide = UInt32(sqrt(Float(kernel.count)))
     
-    let imageRef = image.CGImage
+    guard let imageRef = image.cgImage else { return nil }
+    guard let inProvider = imageRef.dataProvider else { return nil }
+    guard let inBitmapData = inProvider.data else { return nil }
     
-    let inProvider = CGImageGetDataProvider(imageRef)
-    let inBitmapData = CGDataProviderCopyData(inProvider)
+    var inBuffer = vImage_Buffer(data: UnsafeMutablePointer(mutating: CFDataGetBytePtr(inBitmapData)), height: UInt(imageRef.height), width: UInt(imageRef.width), rowBytes: imageRef.bytesPerRow)
     
-    var inBuffer = vImage_Buffer(data: UnsafeMutablePointer(CFDataGetBytePtr(inBitmapData)), height: UInt(CGImageGetHeight(imageRef)), width: UInt(CGImageGetWidth(imageRef)), rowBytes: CGImageGetBytesPerRow(imageRef))
+    let pixelBuffer = malloc(imageRef.bytesPerRow * imageRef.height)
     
-    var pixelBuffer = malloc(CGImageGetBytesPerRow(imageRef) * CGImageGetHeight(imageRef))
+    var outBuffer = vImage_Buffer(data: pixelBuffer, height: UInt(imageRef.height), width: UInt(imageRef.width
+    ), rowBytes: imageRef.bytesPerRow)
     
-    var outBuffer = vImage_Buffer(data: pixelBuffer, height: UInt(CGImageGetHeight(imageRef)), width: UInt(CGImageGetWidth(imageRef)), rowBytes: CGImageGetBytesPerRow(imageRef))
+    var backgroundColor: [UInt8] = [0, 0, 0, 0]
     
-    var backgroundColor : Array<UInt8> = [0,0,0,0]
+    vImageConvolve_ARGB8888(&inBuffer, &outBuffer, nil, 0, 0, kernel, kernelSide, kernelSide, Int32(divisor), &backgroundColor, vImage_Flags(kvImageBackgroundColorFill))
     
-    var error = vImageConvolve_ARGB8888(&inBuffer, &outBuffer, nil, 0, 0, kernel, kernelSide, kernelSide, Int32(divisor), &backgroundColor, UInt32(kvImageBackgroundColorFill))
-    
-    let outImage = UIImage(fromvImageOutBuffer: outBuffer, scale: image.scale, orientation: .Up)
+    let outImage = UIImage(fromvImageOutBuffer: outBuffer, scale: image.scale, orientation: .up)
     
     free(pixelBuffer)
     
-    return outImage!
+    return outImage
 }
 
 private extension UIImage
 {
-    convenience init?(fromvImageOutBuffer outBuffer:vImage_Buffer, scale:CGFloat, orientation: UIImageOrientation)
+    convenience init?(fromvImageOutBuffer outBuffer: vImage_Buffer, scale: CGFloat, orientation: Orientation)
     {
-        var colorSpace = CGColorSpaceCreateDeviceRGB()
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
         
-        var context = CGBitmapContextCreate(outBuffer.data, Int(outBuffer.width), Int(outBuffer.height), 8, outBuffer.rowBytes, colorSpace, CGBitmapInfo(CGImageAlphaInfo.NoneSkipLast.rawValue))
+        let context = CGContext(data: outBuffer.data, width: Int(outBuffer.width), height: Int(outBuffer.height), bitsPerComponent: 8, bytesPerRow: outBuffer.rowBytes, space: colorSpace, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
         
-        var outCGimage = CGBitmapContextCreateImage(context)
+        guard let outCGimage = context?.makeImage() else { return nil }
         
-        self.init(CGImage: outCGimage, scale:scale, orientation:orientation)
+        self.init(cgImage: outCGimage, scale:scale, orientation: orientation)
     }
 }
